@@ -9,20 +9,27 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/MatthewAraujo/airCast/utils"
 	"github.com/gorilla/mux"
+	"golang.org/x/net/websocket"
 )
 
 type Handler struct {
+	conns map[*websocket.Conn]bool
+	mu    sync.Mutex
 }
 
 func NewHandler() *Handler {
-	return &Handler{}
+	return &Handler{
+		conns: make(map[*websocket.Conn]bool),
+	}
 }
 
 func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/video/{id}/stream", h.handleVideoStream).Methods(http.MethodGet)
+	router.Handle("/ws", websocket.Handler(h.handleWS))
 
 	absPath, err := filepath.Abs("./public")
 	if err != nil {
@@ -33,7 +40,62 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.PathPrefix("/").Handler(http.StripPrefix("/api/v1", fileServer))
 }
 
+func (h *Handler) handleWS(ws *websocket.Conn) {
+	log.Print("new incomming connection from cliente: ", ws.RemoteAddr())
+
+	h.conns[ws] = true
+
+	h.readLoop(ws)
+}
+
+func (h *Handler) readLoop(ws *websocket.Conn) {
+	buf := make([]byte, 1024)
+
+	for {
+		n, err := ws.Read(buf)
+
+		if err != nil {
+			if err == io.EOF {
+				log.Println("Client disconnected")
+				break
+			}
+
+			log.Println("Read error:", err)
+			break
+		}
+
+		msg := buf[:n]
+
+		h.broadcastToWS(msg)
+	}
+
+	h.cleanupConnection(ws)
+}
+
+func (h *Handler) cleanupConnection(ws *websocket.Conn) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	delete(h.conns, ws)
+	ws.Close()
+	log.Println("Connection removed")
+}
+
+func (h *Handler) broadcastToWS(msg []byte) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	for conn := range h.conns {
+		go func(conn *websocket.Conn, msg []byte) {
+			_, err := conn.Write(msg)
+			if err != nil {
+				log.Println("Write error:", err)
+			}
+		}(conn, msg)
+	}
+}
+
 func (h *Handler) handleVideoStream(w http.ResponseWriter, r *http.Request) {
+
 	log.Print("getting hit")
 	videoID := mux.Vars(r)["id"]
 	videoPath := fmt.Sprintf("./videos/%s.mp4", videoID)
@@ -62,7 +124,9 @@ func (h *Handler) handleVideoStream(w http.ResponseWriter, r *http.Request) {
 		}
 
 		chunkSize := end - start + 1
-		w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, fileSize))
+		contentRange := fmt.Sprintf("bytes %d-%d/%d", start, end, fileSize)
+
+		w.Header().Set("Content-Range", contentRange)
 		w.Header().Set("Accept-Ranges", "bytes")
 		w.Header().Set("Content-Length", fmt.Sprintf("%d", chunkSize))
 		w.WriteHeader(http.StatusPartialContent)
@@ -76,7 +140,7 @@ func (h *Handler) handleVideoStream(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 			n, err := file.Read(buffer)
-			if err != nil && err.Error() != "EOF" {
+			if err != nil && err == io.EOF {
 				utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("not able to get video info"))
 				return
 			}
@@ -86,6 +150,8 @@ func (h *Handler) handleVideoStream(w http.ResponseWriter, r *http.Request) {
 			w.Write(buffer[:n])
 			bytesRead += int64(n)
 		}
+
+		h.broadcastToWS([]byte(utils.Int64ToString(bytesRead)))
 	} else {
 		w.Header().Set("Content-Type", "video/mp4")
 		w.Header().Set("Content-Length", fmt.Sprintf("%d", fileSize))

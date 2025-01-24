@@ -3,6 +3,7 @@ package utils
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 )
 
 func WriteJSON(w http.ResponseWriter, status int, v any) error {
@@ -13,4 +14,8 @@ func WriteJSON(w http.ResponseWriter, status int, v any) error {
 
 func WriteError(w http.ResponseWriter, status int, err error) {
 	WriteJSON(w, status, map[string]string{"error": err.Error()})
+}
+
+func Int64ToString(num int64) string {
+	return strconv.FormatInt(num, 10) // 10 é a base decimal
 }
