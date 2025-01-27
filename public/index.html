@@ -1,50 +1,104 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
+  <title>Custom Video Streaming</title>
 </head>
+
 <body style="margin: 0 auto; background-color: black;">
-<video controls width="600">
-  <source src="http://localhost:8080/api/v1/video/2720e8d0-fd5e-4f4c-9b29-c36b7d42a98d/stream" type="video/mp4">
-</video>
-  
-<script>
-  const connectWebSocket = async () => {
-    return new Promise((resolve, reject) => {
-      const socket = new WebSocket("ws://localhost:8080/api/v1/ws");
+  <video controls width="600" id="video"></video>
 
-      socket.onopen = () => {
-        console.log("WebSocket connection established");
-        resolve(socket);
-      };
+  <script>
+    const videoElement = document.getElementById("video");
+    let socket;
+    let isUpdatingFromServer = false;
 
-      socket.onerror = (error) => {
-        console.error("WebSocket error:", error);
-        reject(error);
-      };
-    });
-  };
+    const connectWebSocket = async () => {
+      return new Promise((resolve, reject) => {
+        const ws = new WebSocket("ws://localhost:8080/api/v1/ws");
+        ws.onopen = () => {
+          console.log("WebSocket connection established");
+          resolve(ws);
+        };
 
-  const main = async () => {
-    try {
-      const socket = await connectWebSocket();
+        ws.onerror = (error) => {
+          console.error("WebSocket error:", error);
+          reject(error);
+        };
 
-      socket.send("wat");
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log("Received state from server:", data);
 
-      socket.onmessage = (event) => {
-        console.log("Received from the server:", event.data);
-        if (event.data.startsWith("bytes")) {
-          console.log("Content-Range received:", event.data);
+            isUpdatingFromServer = true;
+            if (data.current_time !== undefined && Math.abs(videoElement.currentTime - data.current_time) > 0.5) {
+              console.log("oi")
+              videoElement.currentTime = data.current_time;
+            }
+            if (data.playing !== undefined) {
+              if (data.playing && videoElement.paused) {
+                videoElement.play();
+              } else if (!data.playing && !videoElement.paused) {
+                videoElement.pause();
+              }
+            }
+            isUpdatingFromServer = false;
+          } catch (err) {
+            console.error("Error parsing message:", err);
+          }
+        };
+
+        return ws;
+      });
+    };
+
+    const setupVideoControls = () => {
+      videoElement.addEventListener("play", () => {
+        if (socket && !isUpdatingFromServer) {
+          const state = JSON.stringify({ current_time: videoElement.currentTime, playing: true });
+          socket.send(state);
+          console.log("Sent state:", state);
         }
-      };
-    } catch (error) {
-      console.error("Failed to connect to WebSocket:", error);
-    }
-  };
+      });
 
-  main();
-</script>
+      videoElement.addEventListener("pause", () => {
+        if (socket && !isUpdatingFromServer) {
+          const state = JSON.stringify({ current_time: videoElement.currentTime, playing: false });
+          socket.send(state);
+          console.log("Sent state:", state);
+        }
+      });
+
+      videoElement.addEventListener("seeked", () => {
+        if (socket && !isUpdatingFromServer) {
+          const state = JSON.stringify({ current_time: videoElement.currentTime, playing: !videoElement.paused });
+          socket.send(state);
+          console.log("Sent state:", state);
+        }
+      });
+    };
+
+    const loadVideo = () => {
+      const videoId = "2720e8d0-fd5e-4f4c-9b29-c36b7d42a98d";
+      videoElement.src = `/api/v1/video/${videoId}/stream`;
+      videoElement.load();
+    };
+
+    const main = async () => {
+      try {
+        socket = await connectWebSocket();
+        setupVideoControls();
+        loadVideo();
+      } catch (error) {
+        console.error("Error initializing app:", error);
+      }
+    };
+
+    main();
+  </script>
 </body>
+
 </html>

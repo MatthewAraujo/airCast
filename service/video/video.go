@@ -1,6 +1,7 @@
 package video
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -16,9 +17,15 @@ import (
 	"golang.org/x/net/websocket"
 )
 
+type VideoState struct {
+	CurrentTime float64 `json:"current_time"`
+	Playing     bool    `json:"playing"`
+}
+
 type Handler struct {
 	conns map[*websocket.Conn]bool
 	mu    sync.Mutex
+	state VideoState
 }
 
 func NewHandler() *Handler {
@@ -41,35 +48,47 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 }
 
 func (h *Handler) handleWS(ws *websocket.Conn) {
-	log.Print("new incomming connection from cliente: ", ws.RemoteAddr())
+	log.Print("New incoming connection from client:", ws.RemoteAddr())
 
+	h.mu.Lock()
 	h.conns[ws] = true
+	h.mu.Unlock()
+
+	initialState, _ := json.Marshal(h.state)
+	ws.Write(initialState)
 
 	h.readLoop(ws)
 }
 
 func (h *Handler) readLoop(ws *websocket.Conn) {
+	defer h.cleanupConnection(ws)
+
 	buf := make([]byte, 1024)
 
 	for {
 		n, err := ws.Read(buf)
-
 		if err != nil {
 			if err == io.EOF {
 				log.Println("Client disconnected")
 				break
 			}
-
 			log.Println("Read error:", err)
 			break
 		}
 
-		msg := buf[:n]
+		var newState VideoState
+		err = json.Unmarshal(buf[:n], &newState)
+		if err != nil {
+			log.Println("Invalid message format:", err)
+			continue
+		}
 
-		h.broadcastToWS(msg)
+		h.mu.Lock()
+		h.state = newState
+		h.mu.Unlock()
+
+		h.broadcastToWS(buf[:n])
 	}
-
-	h.cleanupConnection(ws)
 }
 
 func (h *Handler) cleanupConnection(ws *websocket.Conn) {
@@ -84,6 +103,7 @@ func (h *Handler) broadcastToWS(msg []byte) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
+	fmt.Printf("msg: %s\n", msg)
 	for conn := range h.conns {
 		go func(conn *websocket.Conn, msg []byte) {
 			_, err := conn.Write(msg)
@@ -150,8 +170,6 @@ func (h *Handler) handleVideoStream(w http.ResponseWriter, r *http.Request) {
 			w.Write(buffer[:n])
 			bytesRead += int64(n)
 		}
-
-		h.broadcastToWS([]byte(utils.Int64ToString(bytesRead)))
 	} else {
 		w.Header().Set("Content-Type", "video/mp4")
 		w.Header().Set("Content-Length", fmt.Sprintf("%d", fileSize))
