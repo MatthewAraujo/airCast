@@ -1,26 +1,19 @@
 package api
 
 import (
-	"log"
 	"net/http"
 
-	"github.com/MatthewAraujo/airCast/service/video"
-	"github.com/MatthewAraujo/airCast/utils"
+	"github.com/MatthewAraujo/airCast/internal/repository"
+	"github.com/MatthewAraujo/airCast/internal/service/video"
+	"github.com/MatthewAraujo/airCast/internal/utils"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 )
 
-type APIServer struct {
-	addr string
-}
+func (s *APIServer) loadRoutes() (http.Handler, error) {
 
-func NewAPIServer(addr string) *APIServer {
-	return &APIServer{
-		addr: addr,
-	}
-}
+	repo := repository.New(s.db)
 
-func (s *APIServer) Run() error {
 	router := mux.NewRouter()
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:3000"},
@@ -33,14 +26,12 @@ func (s *APIServer) Run() error {
 	// if the api changes in the future we can just change the version here, and the old version will still be available
 	subrouter := router.PathPrefix("/api/v1").Subrouter()
 
-	videoHandler := video.NewHandler()
+	videoHandler := video.NewHandler(repo)
 	videoHandler.RegisterRoutes(subrouter)
 
 	subrouter.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		utils.WriteJSON(w, 200, map[string]string{"status": "api is healthy"})
 	})
 
-	log.Println("Starting server on", s.addr)
-
-	return http.ListenAndServe(s.addr, router)
+	return subrouter, nil
 }

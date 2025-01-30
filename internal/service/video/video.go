@@ -12,7 +12,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/MatthewAraujo/airCast/utils"
+	"github.com/MatthewAraujo/airCast/internal/repository"
+	"github.com/MatthewAraujo/airCast/internal/utils"
 	"github.com/gorilla/mux"
 	"golang.org/x/net/websocket"
 )
@@ -26,11 +27,14 @@ type Handler struct {
 	conns map[*websocket.Conn]bool
 	mu    sync.Mutex
 	state VideoState
+
+	db *repository.Queries
 }
 
-func NewHandler() *Handler {
+func NewHandler(db *repository.Queries) *Handler {
 	return &Handler{
 		conns: make(map[*websocket.Conn]bool),
+		db:    db,
 	}
 }
 

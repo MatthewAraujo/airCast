@@ -1,5 +1,8 @@
+# Variáveis
+MIGRATION_DIR=internal/cmd/migrate/migrations
+
 build:
-	@go build -o bin/airCast cmd/main.go
+	@go build -o bin/airCast internal/cmd/main.go
 
 test:
 	@echo "Testing..."
@@ -8,6 +11,16 @@ test:
 run: build
 	@echo "Building..."
 	@./bin/airCast
+
+migration:
+	@migrate create -ext sql -dir $(MIGRATION_DIR) $(NAME)
+
+migrate-up:
+	@go run internal/cmd/migrate/main.go up 
+
+migrate-down:
+	@go run internal/cmd/migrate/main.go down
+
 %:
 	@:
 
