@@ -27,4 +27,6 @@ go.work.sum
 /videos/*
 /bin/*
 
-tmp/
+/tmp/*
+
+tailwindcss

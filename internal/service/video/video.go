@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/MatthewAraujo/airCast/internal/repository"
+	"github.com/MatthewAraujo/airCast/internal/templates"
 	"github.com/MatthewAraujo/airCast/internal/utils"
 	"github.com/gorilla/mux"
 	"golang.org/x/net/websocket"
@@ -41,6 +42,11 @@ func NewHandler(db *repository.Queries) *Handler {
 func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/video/{id}/stream", h.handleVideoStream).Methods(http.MethodGet)
 	router.Handle("/ws", websocket.Handler(h.handleWS))
+
+	router.HandleFunc("/testing-templ", func(w http.ResponseWriter, r *http.Request) {
+		component := templates.Hello("matthew")
+		component.Render(r.Context(), w)
+	})
 
 	absPath, err := filepath.Abs("./public")
 	if err != nil {
