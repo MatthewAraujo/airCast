@@ -5,7 +5,8 @@ build:
 	@echo "Building..."
 	@templ generate
 
-	# @./tailwindcss -i static/css/input.css -o static/css/output.css
+	@./tailwindcss -i internal/web/assets/css/input.css -o internal/web/assets/css/output.css
+
 	@go build -o bin/airCast internal/cmd/main.go
 
 test:
@@ -32,6 +33,7 @@ tailwind:
 	
 	@chmod +x tailwindcss
 
+
 migration:
 	@migrate create -ext sql -dir $(MIGRATION_DIR) $(NAME)
 
@@ -43,6 +45,10 @@ migrate-down:
 
 %:
 	@:
+
+clean:
+	@echo "Cleaning..."
+	@rm -f /bin/airCast
 
 watch:
 	@if command -v air > /dev/null; then \
@@ -59,3 +65,5 @@ watch:
                 exit 1; \
             fi; \
         fi
+
+.PHONY: all build run test clean watch tailwind templ-install

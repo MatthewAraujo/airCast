@@ -13,8 +13,8 @@ import (
 	"sync"
 
 	"github.com/MatthewAraujo/airCast/internal/repository"
-	"github.com/MatthewAraujo/airCast/internal/templates"
 	"github.com/MatthewAraujo/airCast/internal/utils"
+	"github.com/MatthewAraujo/airCast/internal/web/templates"
 	"github.com/gorilla/mux"
 	"golang.org/x/net/websocket"
 )
