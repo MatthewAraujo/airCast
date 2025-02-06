@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/MatthewAraujo/airCast/internal/repository"
 	"github.com/MatthewAraujo/airCast/internal/utils"
-	"github.com/MatthewAraujo/airCast/internal/web/templates"
 	"github.com/gorilla/mux"
 	"golang.org/x/net/websocket"
 )
@@ -29,13 +29,15 @@ type Handler struct {
 	mu    sync.Mutex
 	state VideoState
 
-	db *repository.Queries
+	db     *repository.Queries
+	logger *slog.Logger
 }
 
-func NewHandler(db *repository.Queries) *Handler {
+func NewHandler(db *repository.Queries, logger *slog.Logger) *Handler {
 	return &Handler{
-		conns: make(map[*websocket.Conn]bool),
-		db:    db,
+		conns:  make(map[*websocket.Conn]bool),
+		db:     db,
+		logger: logger,
 	}
 }
 
@@ -43,14 +45,9 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/video/{id}/stream", h.handleVideoStream).Methods(http.MethodGet)
 	router.Handle("/ws", websocket.Handler(h.handleWS))
 
-	router.HandleFunc("/testing-templ", func(w http.ResponseWriter, r *http.Request) {
-		component := templates.Hello("matthew")
-		component.Render(r.Context(), w)
-	})
-
 	absPath, err := filepath.Abs("./public")
 	if err != nil {
-		log.Fatalf("Erro ao obter o caminho absoluto: %v", err)
+		h.logger.Error("Erro ao obter o caminho absoluto: %v", err.Error())
 	}
 
 	fileServer := http.FileServer(http.Dir(absPath))
@@ -58,7 +55,7 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 }
 
 func (h *Handler) handleWS(ws *websocket.Conn) {
-	log.Print("New incoming connection from client:", ws.RemoteAddr())
+	h.logger.Info("New incoming connection from client:", ws.RemoteAddr().String())
 
 	h.mu.Lock()
 	h.conns[ws] = true

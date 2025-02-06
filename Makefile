@@ -5,7 +5,7 @@ build:
 	@echo "Building..."
 	@templ generate
 
-	@./tailwindcss -i internal/web/assets/css/input.css -o internal/web/assets/css/output.css
+	@./tailwindcss -i internal/web/styles/input.css -o internal/web/assets/css/output.css
 
 	@go build -o bin/airCast internal/cmd/main.go
 
