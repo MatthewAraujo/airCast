@@ -3,35 +3,11 @@ MIGRATION_DIR=internal/cmd/migrate/migrations
 
 build:
 	@echo "Building..."
-	@templ generate
-
-	@./tailwindcss -i internal/web/styles/input.css -o internal/web/assets/css/output.css
-
 	@go build -o bin/airCast internal/cmd/main.go
 
 test:
 	@echo "Testing..."
 	@go test -v ./...
-
-templ-install:
-	@if ! command -v templ > /dev/null; then \
-		read -p "Go's 'templ' is not installed on your machine. Do you want to install it? [Y/n] " choice; \
-		if [ "$$choice" != "n" ] && [ "$$choice" != "N" ]; then \
-			go install github.com/a-h/templ/cmd/templ@latest; \
-			if [ ! -x "$$(command -v templ)" ]; then \
-				echo "templ installation failed. Exiting..."; \
-				exit 1; \
-			fi; \
-		else \
-			echo "You chose not to install templ. Exiting..."; \
-			exit 1; \
-		fi; \
-	fi
-
-tailwind:
-	@if [ ! -f tailwindcss ]; then curl -sL https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64 -o tailwindcss; fi
-	
-	@chmod +x tailwindcss
 
 
 migration:
@@ -65,5 +41,3 @@ watch:
                 exit 1; \
             fi; \
         fi
-
-.PHONY: all build run test clean watch tailwind templ-install

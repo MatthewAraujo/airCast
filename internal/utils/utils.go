@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+
+	"github.com/MatthewAraujo/airCast/internal/errors"
 )
 
 func WriteJSON(w http.ResponseWriter, status int, v any) error {
@@ -12,8 +14,19 @@ func WriteJSON(w http.ResponseWriter, status int, v any) error {
 	return json.NewEncoder(w).Encode(v)
 }
 
-func WriteError(w http.ResponseWriter, status int, err error) {
-	WriteJSON(w, status, map[string]string{"error": err.Error()})
+func WriteError(w http.ResponseWriter, status int, err errors.AppError) {
+	WriteJSON(w, status, map[string]any{
+		"status":  "error",
+		"message": err.Message,
+		"enum":    err.EnumName(),
+	})
+}
+
+func WriteSuccess(w http.ResponseWriter, status int, data any) {
+	WriteJSON(w, status, map[string]any{
+		"status": "success",
+		"data":   data,
+	})
 }
 
 func Int64ToString(num int64) string {

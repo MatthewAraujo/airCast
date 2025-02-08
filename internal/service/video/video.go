@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/MatthewAraujo/airCast/internal/errors"
 	"github.com/MatthewAraujo/airCast/internal/repository"
 	"github.com/MatthewAraujo/airCast/internal/utils"
 	"github.com/gorilla/mux"
@@ -129,14 +130,14 @@ func (h *Handler) handleVideoStream(w http.ResponseWriter, r *http.Request) {
 
 	file, err := os.Open(videoPath)
 	if err != nil {
-		utils.WriteError(w, http.StatusNotFound, fmt.Errorf("video not found"))
+		utils.WriteError(w, http.StatusNotFound, errors.VideoNotFound)
 		return
 	}
 	defer file.Close()
 
 	fileInfo, err := file.Stat()
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("not able to get video info"))
+		utils.WriteError(w, http.StatusInternalServerError, errors.VideoInfo)
 		return
 	}
 	fileSize := fileInfo.Size()
@@ -168,7 +169,7 @@ func (h *Handler) handleVideoStream(w http.ResponseWriter, r *http.Request) {
 			}
 			n, err := file.Read(buffer)
 			if err != nil && err == io.EOF {
-				utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("not able to get video info"))
+				utils.WriteError(w, http.StatusInternalServerError, errors.VideoInfo)
 				return
 			}
 			if n == 0 {
@@ -184,12 +185,12 @@ func (h *Handler) handleVideoStream(w http.ResponseWriter, r *http.Request) {
 
 		_, err := file.Seek(0, 0)
 		if err != nil {
-			utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("error getting the start of the video"))
+			utils.WriteError(w, http.StatusInternalServerError, errors.VideoSeek)
 			return
 		}
 		_, err = io.Copy(w, file)
 		if err != nil {
-			utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("error sending the video"))
+			utils.WriteError(w, http.StatusInternalServerError, errors.VideoSend)
 		}
 	}
 }
