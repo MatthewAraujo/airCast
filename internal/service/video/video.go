@@ -47,7 +47,7 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 
 	absPath, err := filepath.Abs("./public")
 	if err != nil {
-		h.logger.Error("Erro ao obter o caminho absoluto: %v", err.Error())
+		h.logger.Error("Erro ao obter o caminho absoluto: %v", err.Error(), h)
 	}
 
 	fileServer := http.FileServer(http.Dir(absPath))
@@ -55,7 +55,7 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 }
 
 func (h *Handler) handleWS(ws *websocket.Conn) {
-	h.logger.Info("New incoming connection from client:", ws.RemoteAddr().String())
+	h.logger.Info("New incoming connection from client:", ws.RemoteAddr().String(), h)
 
 	h.mu.Lock()
 	h.conns[ws] = true
@@ -76,17 +76,17 @@ func (h *Handler) readLoop(ws *websocket.Conn) {
 		n, err := ws.Read(buf)
 		if err != nil {
 			if err == io.EOF {
-				log.Println("Client disconnected")
+				h.logger.Info("Client disconnected")
 				break
 			}
-			log.Println("Read error:", err)
+			h.logger.Debug("Client disconnected")
 			break
 		}
 
 		var newState VideoState
 		err = json.Unmarshal(buf[:n], &newState)
 		if err != nil {
-			log.Println("Invalid message format:", err)
+			h.logger.Error("Invalid message format:", err.Error(), h)
 			continue
 		}
 
@@ -103,7 +103,7 @@ func (h *Handler) cleanupConnection(ws *websocket.Conn) {
 	defer h.mu.Unlock()
 	delete(h.conns, ws)
 	ws.Close()
-	log.Println("Connection removed")
+	h.logger.Info("Connection removed")
 }
 
 func (h *Handler) broadcastToWS(msg []byte) {
@@ -115,7 +115,7 @@ func (h *Handler) broadcastToWS(msg []byte) {
 		go func(conn *websocket.Conn, msg []byte) {
 			_, err := conn.Write(msg)
 			if err != nil {
-				log.Println("Write error:", err)
+				h.logger.Error("Write error:", err.Error(), h)
 			}
 		}(conn, msg)
 	}

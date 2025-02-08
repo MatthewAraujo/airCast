@@ -13,7 +13,6 @@ require (
 )
 
 require (
-	github.com/a-h/templ v0.3.833 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
