@@ -1,30 +1,48 @@
 package errors
 
+import "fmt"
+
 type AppErrorType int
 
 type AppError struct {
-	Code    AppErrorType
-	Message string
-}
-
-func (e AppError) Error() string {
-	return e.Message
+	Code     AppErrorType
+	Message  string
+	Messages []string
 }
 
 var (
-	errorMessages = map[AppErrorType]string{}
-	errorNames    = map[AppErrorType]string{}
+	errorNames    = make(map[AppErrorType]string)
+	errorMessages = make(map[AppErrorType]string)
 )
 
+func (e AppError) Error() string {
+	if len(e.Messages) > 0 {
+		return fmt.Sprintf("%s: %v", e.Message, e.Messages)
+	}
+	return e.Message
+}
+
 func NewError(code AppErrorType, name string, message string) AppError {
-	errorMessages[code] = message
 	errorNames[code] = name
+	errorMessages[code] = message
 	return AppError{Code: code, Message: message}
+}
+
+func NewValidationError(messages []string) AppError {
+	return AppError{
+		Code:     ERR_VALIDATION_FAILED,
+		Message:  "Validation failed",
+		Messages: messages,
+	}
 }
 
 func (e AppError) EnumName() string {
 	if name, ok := errorNames[e.Code]; ok {
 		return name
 	}
-	return "UnknownError"
+	return "UNKNOWN_ERROR"
 }
+
+const (
+	ERR_VALIDATION_FAILED AppErrorType = iota
+)
