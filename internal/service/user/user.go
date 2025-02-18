@@ -1,11 +1,14 @@
 package user
 
 import (
+	"context"
+	"database/sql"
 	"log/slog"
 	"net/http"
 
 	"github.com/MatthewAraujo/airCast/internal/errors"
 	"github.com/MatthewAraujo/airCast/internal/repository"
+	"github.com/MatthewAraujo/airCast/internal/service/auth"
 	"github.com/MatthewAraujo/airCast/internal/types"
 	"github.com/MatthewAraujo/airCast/internal/utils"
 	"github.com/go-playground/validator/v10"
@@ -26,11 +29,56 @@ func NewHandler(db *repository.Queries, logger *slog.Logger) *Handler {
 
 func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/account", h.registerAccount).Methods(http.MethodPost)
-	router.HandleFunc("/login", h.login).Methods(http.MethodPost)
+	router.HandleFunc("/login", auth.WithJWTAuth(h.login, *h.db, context.Background())).Methods(http.MethodPost)
 }
 
 func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
+	var payload types.LoginUserPayload
 
+	if err := utils.ParseJSON(r, &payload); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	// validate the payload
+	if err := utils.Validate.Struct(payload); err != nil {
+		if validationErrors, ok := err.(validator.ValidationErrors); ok {
+			errorMessages := utils.TranslateValidationErrors(validationErrors)
+			utils.WriteError(w, http.StatusBadRequest, errors.NewValidationError(errorMessages))
+			return
+		}
+		utils.WriteError(w, http.StatusInternalServerError, errors.NewError(errors.ERR_VALIDATION_FAILED, "ERR_UNKNOWN_VALIDATION", "Unexpected validation error"))
+		return
+	}
+
+	ctx := r.Context()
+
+	u, err := h.db.FindUserByEmail(ctx, payload.Email)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			utils.WriteError(w, http.StatusBadRequest, errors.InternalServerError)
+			return
+		}
+	}
+
+	if u.Email != payload.Email {
+		utils.WriteError(w, http.StatusBadRequest, errors.UserNotFound)
+		return
+	}
+
+	if !auth.ComparePasswords(u.Password, []byte(payload.Password)) {
+		utils.WriteError(w, http.StatusUnauthorized, errors.InvalidCredentials)
+		return
+	}
+
+	token, err := auth.CreateJWT(u.ID.String())
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, errors.InternalServerError)
+		return
+	}
+
+	utils.WriteSuccess(w, http.StatusCreated, map[string]string{
+		"token": token,
+	})
 }
 
 func (h *Handler) registerAccount(w http.ResponseWriter, r *http.Request) {
@@ -51,4 +99,36 @@ func (h *Handler) registerAccount(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, http.StatusInternalServerError, errors.NewError(errors.ERR_VALIDATION_FAILED, "ERR_UNKNOWN_VALIDATION", "Unexpected validation error"))
 		return
 	}
+	ctx := r.Context()
+
+	emailAlreadyExists, err := h.db.FindUserByEmail(ctx, payload.Email)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			utils.WriteError(w, http.StatusBadRequest, errors.InternalServerError)
+			return
+		}
+	}
+
+	if emailAlreadyExists.Email != "" {
+		utils.WriteError(w, http.StatusBadRequest, errors.EmailAlreadyExists)
+		return
+	}
+
+	hashedPassword, err := auth.HashPassword(payload.Password)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, errors.NewError(errors.ERR_VALIDATION_FAILED, "ERR_UNKNOWN_VALIDATION", "Unexpected validation error"))
+		return
+	}
+	_, err = h.db.InsertUsers(ctx,
+		repository.InsertUsersParams{
+			Name:     payload.Name,
+			Email:    payload.Email,
+			Password: hashedPassword,
+		})
+
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, errors.EmailAlreadyExists)
+		return
+	}
+
 }

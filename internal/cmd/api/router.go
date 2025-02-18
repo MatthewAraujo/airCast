@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/MatthewAraujo/airCast/internal/repository"
+	"github.com/MatthewAraujo/airCast/internal/service/user"
 	"github.com/MatthewAraujo/airCast/internal/service/video"
 	"github.com/MatthewAraujo/airCast/internal/utils"
 	"github.com/gorilla/mux"
@@ -29,6 +30,9 @@ func (s *APIServer) loadRoutes() (http.Handler, error) {
 
 	videoHandler := video.NewHandler(repo, s.logger)
 	videoHandler.RegisterRoutes(subrouter)
+
+	userHandler := user.NewHandler(repo, s.logger)
+	userHandler.RegisterRoutes(subrouter.PathPrefix("/user").Subrouter())
 
 	subrouter.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		utils.WriteJSON(w, 200, map[string]string{"status": "api is healthy"})

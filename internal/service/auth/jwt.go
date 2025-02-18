@@ -66,7 +66,8 @@ func getTokenFromRequest(r *http.Request) string {
 	return ""
 }
 
-func CreateJWT(secret []byte, userID string) (string, error) {
+func CreateJWT(userID string) (string, error) {
+	secret := []byte(configs.Envs.JWT.JWTSecret)
 	expiration := time.Second * time.Duration(configs.Envs.JWT.JWTExpirationInSeconds)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"userID":  userID,
