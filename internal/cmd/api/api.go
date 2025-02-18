@@ -32,12 +32,16 @@ func (s *APIServer) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 
+	s.logger.Info("CONNECT TO DATABASE")
+
 	s.db = db
 
 	router, err := s.loadRoutes()
 	if err != nil {
 		return fmt.Errorf("failed when loading routes: %w", err)
 	}
+
+	s.logger.Info("LOAD ROUTES")
 
 	srv := &http.Server{
 		Addr:    s.addr,
@@ -54,7 +58,7 @@ func (s *APIServer) Run(ctx context.Context) error {
 		close(errCh)
 	}()
 
-	s.logger.Info("server running")
+	s.logger.Info(fmt.Sprintf("server running in port %v", s.addr))
 
 	select {
 	// Wait until we receive SIGINT (ctrl+c on cli)

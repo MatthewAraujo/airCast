@@ -43,11 +43,7 @@ func (e AppError) EnumName() string {
 	return "UNKNOWN_ERROR"
 }
 
-const (
-	ERR_VALIDATION_FAILED AppErrorType = iota
-	ERR_INTERNAL_SERVER_ERROR
-)
-
 var (
 	InternalServerError = NewError(ERR_INTERNAL_SERVER_ERROR, "ERR_INTERNAL_SERVER_ERROR", "internal server error")
+	ValidationError     = NewError(ERR_VALIDATION_FAILED, "ERR_VALIDATION_FAILED", "validation failed")
 )

@@ -1,12 +1,5 @@
 package errors
 
-const (
-	ERR_VIDEO_NOT_FOUND AppErrorType = iota
-	ERR_VIDEO_INFO
-	ERR_VIDEO_SEEK
-	ERR_VIDEO_SEND
-)
-
 var (
 	VideoNotFound = NewError(ERR_VIDEO_NOT_FOUND, "ERR_VIDEO_NOT_FOUND", "video not found")
 	VideoInfo     = NewError(ERR_VIDEO_INFO, "ERR_VIDEO_INFO", "not able to get video info")

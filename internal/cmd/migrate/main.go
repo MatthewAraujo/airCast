@@ -26,7 +26,7 @@ func main() {
 
 	// Caminho para as migrações
 	m, err := migrate.NewWithDatabaseInstance(
-		"file://cmd/migrate/migrations",
+		"file://internal/cmd/migrate/migrations",
 		"pgx",
 		driver,
 	)

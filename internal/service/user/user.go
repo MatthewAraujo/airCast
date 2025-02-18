@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"database/sql"
+	internal_error "errors"
 	"log/slog"
 	"net/http"
 
@@ -88,7 +89,8 @@ func (h *Handler) registerAccount(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	// validate the payload
+
+	h.logger.Debug("validate payload")
 	if err := utils.Validate.Struct(payload); err != nil {
 		if validationErrors, ok := err.(validator.ValidationErrors); ok {
 			errorMessages := utils.TranslateValidationErrors(validationErrors)
@@ -101,24 +103,33 @@ func (h *Handler) registerAccount(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 
+	h.logger.Debug("checking if email exists")
 	emailAlreadyExists, err := h.db.FindUserByEmail(ctx, payload.Email)
 	if err != nil {
-		if err != sql.ErrNoRows {
-			utils.WriteError(w, http.StatusBadRequest, errors.InternalServerError)
+		if internal_error.Is(err, sql.ErrNoRows) {
+			h.logger.Debug("email does not exist", "email", payload.Email)
+		} else {
+			h.logger.Error("database error", "error", err)
+			utils.WriteError(w, http.StatusInternalServerError, errors.InternalServerError)
 			return
 		}
 	}
 
 	if emailAlreadyExists.Email != "" {
+		h.logger.Debug("email exists")
 		utils.WriteError(w, http.StatusBadRequest, errors.EmailAlreadyExists)
 		return
 	}
 
+	h.logger.Debug("hashing password")
 	hashedPassword, err := auth.HashPassword(payload.Password)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, errors.NewError(errors.ERR_VALIDATION_FAILED, "ERR_UNKNOWN_VALIDATION", "Unexpected validation error"))
 		return
 	}
+
+	h.logger.Debug("inserting user")
+
 	_, err = h.db.InsertUsers(ctx,
 		repository.InsertUsersParams{
 			Name:     payload.Name,
@@ -131,4 +142,5 @@ func (h *Handler) registerAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	utils.WriteSuccess(w, http.StatusOK, nil)
 }

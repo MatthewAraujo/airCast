@@ -26,6 +26,7 @@ func Int64ToString(num int64) string {
 
 func TranslateValidationErrors(errs validator.ValidationErrors) []string {
 	var messages []string
+	fmt.Printf("errs: %v\n", errs)
 	for _, err := range errs {
 		message := fmt.Sprintf("The field '%s' failed on validation: %s", err.Field(), err.Tag())
 		if err.Tag() == "required" {
@@ -39,12 +40,17 @@ func TranslateValidationErrors(errs validator.ValidationErrors) []string {
 }
 
 func WriteError(w http.ResponseWriter, status int, err internal_error.AppError) {
-	WriteJSON(w, status, map[string]any{
-		"status":   "error",
-		"message":  err.Message,
-		"enum":     err.EnumName(),
-		"messages": err.Messages,
-	})
+	response := map[string]any{
+		"status":  "error",
+		"message": err.Message,
+		"enum":    err.EnumName(),
+	}
+
+	if len(err.Messages) > 0 {
+		response["messages"] = err.Messages
+	}
+
+	WriteJSON(w, status, response)
 }
 
 func WriteJSON(w http.ResponseWriter, status int, data any) {
