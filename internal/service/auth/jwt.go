@@ -3,7 +3,7 @@ package auth
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -19,42 +19,47 @@ type contextKey string
 
 const UserKey contextKey = "userID"
 
-func WithJWTAuth(handleFunc http.HandlerFunc, store repository.Queries, ctx context.Context) http.HandlerFunc {
+func WithJWTAuth(handler http.HandlerFunc, store repository.Queries, ctx context.Context, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tokenString := getTokenFromRequest(r)
+
 		token, err := validateJWT(tokenString)
+		if err != nil || !token.Valid {
+			logger.Error("invalid token", "error", err)
+			permissionDenied(w)
+			return
+		}
+
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			logger.Error("failed to parse token claims")
+			permissionDenied(w)
+			return
+		}
+
+		userIDStr, ok := claims["userID"].(string)
+		if !ok {
+			logger.Error("userID claim missing or invalid")
+			permissionDenied(w)
+			return
+		}
+
+		userID, err := uuid.Parse(userIDStr)
 		if err != nil {
-			log.Printf("error validating token: %v", err)
+			logger.Error("invalid userID format", "userID", userIDStr, "error", err)
 			permissionDenied(w)
 			return
 		}
 
-		if !token.Valid {
-			log.Println("token is invalid")
-			permissionDenied(w)
-			return
-		}
-		claims := token.Claims.(jwt.MapClaims)
-		str := claims["userID"].(string)
-		userID, err := uuid.Parse(str)
+		user, err := store.FindUserByID(ctx, userID)
 		if err != nil {
-			log.Printf("error parsing userID: %v", err)
+			logger.Error("user not found", "userID", userID, "error", err)
 			permissionDenied(w)
 			return
 		}
 
-		u, err := store.FindUserByID(ctx, userID)
-		if err != nil {
-			log.Printf("error fetching user: %v", err)
-			permissionDenied(w)
-			return
-		}
-
-		ctx := r.Context()
-		ctx = context.WithValue(ctx, UserKey, u.ID)
-		r = r.WithContext(ctx)
-
-		handleFunc(w, r)
+		ctx = context.WithValue(r.Context(), UserKey, user)
+		handler(w, r.WithContext(ctx))
 	}
 }
 
