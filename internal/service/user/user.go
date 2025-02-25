@@ -30,7 +30,7 @@ func NewHandler(db *repository.Queries, logger *slog.Logger) *Handler {
 
 func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/account", h.registerAccount).Methods(http.MethodPost)
-	router.HandleFunc("/login", auth.WithJWTAuth(h.login, *h.db, context.Background())).Methods(http.MethodPost)
+	router.HandleFunc("/login", auth.WithJWTAuth(h.login, *h.db, context.Background(), h.logger)).Methods(http.MethodPost)
 }
 
 func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
