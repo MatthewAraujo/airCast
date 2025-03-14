@@ -93,6 +93,7 @@ func (h *Handler) joinSession(w http.ResponseWriter, r *http.Request) {
 
 	utils.WriteJSON(w, http.StatusOK, nil)
 }
+
 func (h *Handler) createSession(w http.ResponseWriter, r *http.Request) {
 	h.mu.Lock()
 	defer h.mu.Unlock()

@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -48,14 +47,6 @@ func NewHandler(db *repository.Queries, logger *slog.Logger) *Handler {
 func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/video/{id}/stream", h.handleVideoStream).Methods(http.MethodGet)
 	router.Handle("/ws", websocket.Handler(h.handleWS))
-
-	absPath, err := filepath.Abs("./public")
-	if err != nil {
-		h.logger.Error("Erro ao obter o caminho absoluto: %v", err.Error(), h)
-	}
-
-	fileServer := http.FileServer(http.Dir(absPath))
-	router.PathPrefix("/").Handler(http.StripPrefix("/api/v1", fileServer))
 }
 
 func (h *Handler) handleWS(ws *websocket.Conn) {
