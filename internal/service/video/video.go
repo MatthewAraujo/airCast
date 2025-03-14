@@ -21,8 +21,11 @@ import (
 )
 
 type VideoState struct {
-	CurrentTime float64 `json:"current_time"`
-	Playing     bool    `json:"playing"`
+	// CurrentTime float64 `json:"current_time"`
+	// Playing     bool    `json:"playing"`
+	Timestamp int64  `json:"timestamp"`
+	IsPlaying bool   `json:"is_playing"`
+	VideoURL  string `json:"video_url"`
 }
 
 type Handler struct {

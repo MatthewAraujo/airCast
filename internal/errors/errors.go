@@ -46,4 +46,5 @@ func (e AppError) EnumName() string {
 var (
 	InternalServerError = NewError(ERR_INTERNAL_SERVER_ERROR, "ERR_INTERNAL_SERVER_ERROR", "internal server error")
 	ValidationError     = NewError(ERR_VALIDATION_FAILED, "ERR_VALIDATION_FAILED", "validation failed")
+	Unauthorized        = NewError(ERR_UNAUTHORIZED, "ERR_UNAUTHORIZED", "")
 )

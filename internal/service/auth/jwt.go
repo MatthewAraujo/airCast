@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	configs "github.com/MatthewAraujo/airCast/internal/config"
@@ -15,11 +16,9 @@ import (
 	"github.com/google/uuid"
 )
 
-type contextKey string
+const USER_KEY = "userID"
 
-const UserKey contextKey = "userID"
-
-func WithJWTAuth(handler http.HandlerFunc, store repository.Queries, ctx context.Context, logger *slog.Logger) http.HandlerFunc {
+func WithJWTAuth(handler http.HandlerFunc, store repository.Queries, ctx context.Context, logger slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tokenString := getTokenFromRequest(r)
 
@@ -37,7 +36,7 @@ func WithJWTAuth(handler http.HandlerFunc, store repository.Queries, ctx context
 			return
 		}
 
-		userIDStr, ok := claims["userID"].(string)
+		userIDStr, ok := claims[USER_KEY].(string)
 		if !ok {
 			logger.Error("userID claim missing or invalid")
 			permissionDenied(w)
@@ -58,7 +57,7 @@ func WithJWTAuth(handler http.HandlerFunc, store repository.Queries, ctx context
 			return
 		}
 
-		ctx = context.WithValue(r.Context(), UserKey, user)
+		ctx = context.WithValue(r.Context(), USER_KEY, user)
 		handler(w, r.WithContext(ctx))
 	}
 }
@@ -66,8 +65,14 @@ func WithJWTAuth(handler http.HandlerFunc, store repository.Queries, ctx context
 func getTokenFromRequest(r *http.Request) string {
 	tokenAuth := r.Header.Get("Authorization")
 	if tokenAuth == "" {
-		return tokenAuth
+		return ""
 	}
+
+	parts := strings.Split(tokenAuth, " ")
+	if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
+		return parts[1]
+	}
+
 	return ""
 }
 
@@ -75,7 +80,7 @@ func CreateJWT(userID string) (string, error) {
 	secret := []byte(configs.Envs.JWT.JWTSecret)
 	expiration := time.Second * time.Duration(configs.Envs.JWT.JWTExpirationInSeconds)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"userID":  userID,
+		USER_KEY:  userID,
 		"expires": time.Now().Add(expiration).Unix(),
 	})
 	tokenString, err := token.SignedString(secret)
@@ -97,14 +102,17 @@ func validateJWT(tokenString string) (*jwt.Token, error) {
 }
 
 func permissionDenied(w http.ResponseWriter) {
-	utils.WriteError(w, http.StatusForbidden, errors.AppError{})
+	utils.WriteError(w, http.StatusForbidden, errors.AppError{
+		Code:    errors.ERR_UNAUTHORIZED,
+		Message: "permission denied",
+	})
 }
 
 func GetUserIDFromContext(ctx context.Context) uuid.UUID {
-	userID, ok := ctx.Value(UserKey).(uuid.UUID)
+	userID, ok := ctx.Value(USER_KEY).(repository.User)
 	if !ok {
 		return uuid.Nil
 	}
 
-	return userID
+	return userID.ID
 }

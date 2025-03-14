@@ -44,7 +44,7 @@ func initConfig() Config {
 			Port:       getEnv("PORT", "8080"),
 		},
 		JWT: JWT{
-			JWTSecret:              getEnv("JWT_SECRET", "not-that-secret"),
+			JWTSecret:              getEnv("JWT_SECRET", "this-is-32-char-long-secret!"),
 			JWTExpirationInSeconds: getEnvAsInt("JWT_EXP", 3600*24*7),
 		},
 		Postgres: Postgres{
