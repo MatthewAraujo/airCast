@@ -3,6 +3,7 @@ package session
 import (
 	"log/slog"
 	"net/http"
+	"net/url"
 	"sync"
 
 	"github.com/MatthewAraujo/airCast/internal/errors"
@@ -131,13 +132,31 @@ func (h *Handler) createSession(w http.ResponseWriter, r *http.Request) {
 
 	h.sessions[session.ID] = session
 
-	utils.WriteJSON(w, http.StatusCreated, nil)
+	utils.WriteJSON(w, http.StatusCreated, map[string]string{
+		"link": h.generateLink(session.ID),
+	})
 }
 
 func (h *Handler) generateSessionID() string {
 	uuid, err := uuid.NewRandom()
 	if err != nil {
 		h.logger.Error("error creating random UUID", "error", err)
+		return err.Error()
 	}
-	return "sess-" + uuid.String()
+	return "sess_" + uuid.String()
+}
+
+func (h *Handler) generateLink(sessionID string) string {
+	url := url.URL{
+		Scheme: "http",
+		Host:   "localhost",
+		Path:   "/join",
+	}
+
+	query := url.Query()
+	query.Add("session_id", sessionID)
+
+	url.RawQuery = query.Encode()
+
+	return url.String()
 }
